@@ -1,0 +1,34 @@
+# Salesforce DevOps Pipeline
+trigger: none
+pr: none
+
+jobs:
+- job: Deploy
+  variables:
+    - group: sfdx-org-dev
+  steps:
+  - task: UseNode@1
+    displayName: 'Use Node.js 16.15.0'
+    inputs:
+      version: '16.15.0'
+
+  - bash: npm install sfdx-cli --global
+    displayName: Install Salesforce CLI
+
+  - task: DownloadSecureFile@1
+    name: jwtKey
+    displayName: 'Download Server JWT Key'
+    inputs:
+      secureFile: 'server.key'
+
+  - bash: |
+      sfdx force:auth:jwt:grant --clientid $(Clientid) --jwtkeyfile $(jwtKey.secureFilePath) --username $(SalesforceUserName) --instanceurl $(InstanceUrl) -a $(OrgAlias)
+    displayName: Authorize Salesforce org
+
+  - bash: |
+      sfdx force:source:deploy -l RunLocalTests -c -x manifest/package.xml -u $(OrgAlias) -w 10
+    displayName: Run Validation on source code
+
+  - bash: |
+      sfdx force:source:deploy -l RunLocalTests -x manifest/package.xml -u $(OrgAlias) -w 10
+    displayName: Deploy source code to Salesforce Org
